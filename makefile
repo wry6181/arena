@@ -16,6 +16,6 @@ endif
 all: main
 
 main:
-	$(CC) main.c $(CFLAGS) -o main.out
+	$(CC) server.c $(CFLAGS) -o main.out
 
 .PHONY: all main

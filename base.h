@@ -27,16 +27,16 @@ static inline s8 str8_substr(s8* str, u64 start, u64 end) {
   return (s8){.data = str->data + start, .size = end - start};
 }
 
-static inline s8 str8_append(mem_arena *arena, const s8* a, const s8* b) {
+static inline s8 str8_append(mem_arena *arena, s8 a, s8 b) {
   s8 out = {0};
-  out.size = a->size + b->size;
+  out.size = a.size + b.size;
   out.data = (u8 *)arena_push(arena, out.size, false);
 
   if (!out.data) {
       return out;
   }
-  memcpy(out.data, a->data, a->size);
-  memcpy(out.data + a->size, b->data, b->size);
+  memcpy(out.data, a.data, a.size);
+  memcpy(out.data + a.size, b.data, b.size);
   return out;
 }
 
