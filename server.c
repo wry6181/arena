@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "base.h"
+#include "error.h"
 #include "log.h"
 
 typedef struct {
@@ -51,14 +52,14 @@ int main(void) {
     for(u32 i = 0; i < pool.size; ++i) {
         status = pthread_create(&pool.threads[i], NULL, foo, &ctx);
         if (status != 0) {
-            ERROR_EMIT(STR8_LIT("error"));
+            ERROR_EMIT("error", OPEN_FILE_ERROR);
             exit(-1);
         }
     }
 
     sleep(5);
 
-    WARNING_EMIT(STR8_LIT("main tread"));
+    WARNING_EMIT("main tread", OPEN_FILE_ERROR);
     running = 0;
     for(u32 i = 0; i < pool.size; ++i) {
         pthread_join(pool.threads[i], NULL);

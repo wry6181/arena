@@ -1,6 +1,13 @@
+#pragma once
+
 #include "base.h"
 #include <stdio.h>
 #include <stdint.h>
+
+#ifndef REGISTER_ERROR_VALUE
+  typedef int log_error;
+  #define REGISTER_ERROR_VALUE(T)  // no-op
+#endif
 
 typedef enum {
     LOG_LEVEL_NONE    = 0,
@@ -12,6 +19,7 @@ typedef enum {
 typedef struct{
     s8 msg;
     log_level level;
+    log_error err;
 } log_msg;
 
 typedef struct{
@@ -28,20 +36,19 @@ typedef struct{
     log_frame* frames;
 } log_context;
 
-void log_emit(mem_arena* arena, log_level level, s8 msg);
-s8 log_frame_peek(mem_arena* arena, u32 level_mask);
+static inline void log_emit(mem_arena* arena, log_level level, s8 msg, log_error err);
+static inline s8 log_frame_peek(mem_arena* arena, u32 level_mask);
 
 
 static __thread log_context _log_context = { 0 };
 
-#define ERROR_EMIT(msg) log_emit(_log_context.arena, LOG_LEVEL_ERROR, \
-    str8_append(_log_context.arena, (STR8_LIT("LOG MSG [E]: ")), (msg)))
+#define ERROR_EMIT(msg, err) log_emit(_log_context.arena, LOG_LEVEL_ERROR, \
+    str8_append(_log_context.arena, STR8_LIT("LOG MSG [E]: "), STR8_LIT(msg)), (err))
 
-#define WARNING_EMIT(msg) log_emit(_log_context.arena, LOG_LEVEL_WARNING, \
-    str8_append(_log_context.arena, (STR8_LIT("LOG MSG [W]: ")), (msg)))
+#define WARNING_EMIT(msg, err) log_emit(_log_context.arena, LOG_LEVEL_WARNING, \
+    str8_append(_log_context.arena, STR8_LIT("LOG MSG [W]: "), STR8_LIT(msg)), (err))
 
-
-log_frame _log_create_frame(mem_arena* arena) {
+static inline log_frame log_create_frame(mem_arena* arena) {
     log_frame frame = {
         .size = 0,
         .capacity = 4,
@@ -52,7 +59,7 @@ log_frame _log_create_frame(mem_arena* arena) {
     return frame;
 }
 
-void log_frame_begin(mem_arena* arena)
+static inline void log_frame_begin(mem_arena* arena)
 {
     _log_context.arena = arena;
 
@@ -84,7 +91,7 @@ void log_frame_begin(mem_arena* arena)
     _log_context.frames[_log_context.size++] = frame;
 }
 
-s8 log_frame_end(mem_arena* arena, u32 level_mask) {
+static inline s8 log_frame_end(mem_arena* arena, u32 level_mask) {
     if (_log_context.frames == NULL || _log_context.size == 0) {
         return (s8){ 0 };
     }
@@ -95,7 +102,7 @@ s8 log_frame_end(mem_arena* arena, u32 level_mask) {
     return out;
 }
 
-s8 log_frame_peek(mem_arena* arena, u32 level_mask) {
+static inline s8 log_frame_peek(mem_arena* arena, u32 level_mask) {
     if (_log_context.frames == NULL) { return (s8){ 0 }; }
 
     log_frame* frame = &_log_context.frames[_log_context.size-1];
@@ -142,8 +149,7 @@ s8 log_frame_peek(mem_arena* arena, u32 level_mask) {
 
     return out;
 }
-
-void log_emit(mem_arena* arena, log_level level, s8 msg) {
+static inline void log_emit(mem_arena* arena, log_level level, s8 msg, log_error err) {
     if (_log_context.frames == NULL) { return; }
 
     log_frame* frame = &_log_context.frames[_log_context.size-1];
@@ -158,37 +164,38 @@ void log_emit(mem_arena* arena, log_level level, s8 msg) {
 
     frame->msgs[frame->size++] = (log_msg){
         .level = level,
-        .msg = msg
+        .msg = msg,
+        .err = err,
     };
 }
 
-inline s8 file_read(mem_arena* scrach_arena, const char *file_name) {
-    FILE *f = fopen(file_name, "rb");
-    if (!f) {
-        ERROR_EMIT(STR8_LIT("Failed to open file"));
-        return (s8){0};
-    }
+// s8 file_read(mem_arena* scrach_arena, const char *file_name) {
+//     FILE *f = fopen(file_name, "rb");
+//     if (!f) {
+//         ERROR_EMIT("Failed to open file", OPEN_FILE_ERROR);
+//         return (s8){0};
+//     }
 
-    fseek(f, 0, SEEK_END);
-    size_t size = ftell(f);
-    rewind(f);
+//     fseek(f, 0, SEEK_END);
+//     size_t size = ftell(f);
+//     rewind(f);
 
-    char* buffer = PUSH_ARRAY(scrach_arena, char, size+1);
+//     char* buffer = PUSH_ARRAY(scrach_arena, char, size+1);
 
-    if (!buffer) {
-        fclose(f);
-        return (s8){0};
-    }
+//     if (!buffer) {
+//         fclose(f);
+//         return (s8){0};
+//     }
 
-    fread(buffer, 1, size, f);
-    buffer[size] = 0;
+//     fread(buffer, 1, size, f);
+//     buffer[size] = 0;
 
-    fclose(f);
+//     fclose(f);
 
-    return (s8){(u8*)buffer, size};
-}
+//     return (s8){(u8*)buffer, size};
+// }
 
-void log_print(mem_arena* arena, log_level level) {
+static inline void log_print(mem_arena* arena, log_level level) {
     s8 logs = log_frame_end(arena, level);
     if (logs.size) {
         printf("%.*s\n", STR8_FMT(logs));
@@ -213,6 +220,7 @@ void log_print(mem_arena* arena, log_level level) {
 //     }
 
 //     printf("File sum: %u\n", file_sum);
+//
 //     if(!file_sum) {
 //         ERROR_EMIT(STR8_LIT("Not able to count file sum"));
 //     }
