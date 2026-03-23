@@ -10,31 +10,31 @@ typedef struct {
 
 void test_arena(void);
 void test_str8(void);
-void test_file_parse(void) ;
+void test_file_parse(void);
 
 int main(void) {
   // test_arena();
-   test_str8();
-  //test_file_parse();
+  test_str8();
+  // test_file_parse();
   return 0;
 }
 
 void test_file_parse(void) {
-    FILE *f = fopen(__FILE__, "rb");
-    assert(f != NULL);
-    mem_arena* file_arena = arena_create(MByte(1));
+  FILE *f = fopen(__FILE__, "rb");
+  assert(f != NULL);
+  mem_arena *file_arena = arena_create(MByte(1));
 
-    u32 size = fread(file_arena, Byte(1), MByte(1), f);
+  u32 size = fread(file_arena, Byte(1), MByte(1), f);
 
-    s8 file_str = {
-        .data = (u8*)file_arena,
-        .size = size,
-    };
+  s8 file_str = {
+      .data = (u8 *)file_arena,
+      .size = size,
+  };
 
-    while(file_str.size > 0) {
-        s8 line = str8_slice_at(&file_str, '\n');
-        printf("%.*s\n", STR8_FMT(line));
-    }
+  while (file_str.size > 0) {
+    s8 line = str8_slice_at(&file_str, '\n');
+    printf("%.*s\n", STR8_FMT(line));
+  }
 }
 
 void test_str8(void) {
@@ -51,7 +51,6 @@ void test_str8(void) {
   s8 str4 = str8_slice_at(&str3, ',');
   printf("[%.*s]\n", STR8_FMT(str3));
   printf("[%.*s]\n", STR8_FMT(str4));
-
 }
 
 void test_arena(void) {

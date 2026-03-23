@@ -21,7 +21,7 @@ typedef struct {
 #define STR8_LIT(str)                                                          \
   (s8) { (u8 *)(str), (sizeof((str)) - 1) }
 
-static inline s8 str8_substr(s8* str, u64 start, u64 end) {
+static inline s8 str8_substr(s8 *str, u64 start, u64 end) {
   end = MIN(end, str->size);
   start = MIN(start, end);
   return (s8){.data = str->data + start, .size = end - start};
@@ -33,7 +33,7 @@ static inline s8 str8_append(mem_arena *arena, s8 a, s8 b) {
   out.data = (u8 *)arena_push(arena, out.size, false);
 
   if (!out.data) {
-      return out;
+    return out;
   }
   memcpy(out.data, a.data, a.size);
   memcpy(out.data + a.size, b.data, b.size);
@@ -45,58 +45,59 @@ static inline s8 str8_to_cstr(mem_arena *arena, s8 a) {
   out.size = a.size + 1;
   out.data = (u8 *)arena_push(arena, out.size, false);
   if (!out.data) {
-      return out;
+    return out;
   }
   memcpy(out.data, a.data, a.size);
   out.data[a.size] = '\0';
   return out;
 }
 
-static inline void str8_cut_left(s8* str, u64 amount) {
-    if (str->size < amount) {
-        return;
-    }
-    str->data += amount;
-    str->size -= amount;
+static inline void str8_cut_left(s8 *str, u64 amount) {
+  if (str->size < amount) {
+    return;
+  }
+  str->data += amount;
+  str->size -= amount;
 }
 
-static inline void str8_cut_right(s8* str, u64 amount) {
-    if (str->size < amount) {
-        return;
-    }
-    str->size -= amount;
+static inline void str8_cut_right(s8 *str, u64 amount) {
+  if (str->size < amount) {
+    return;
+  }
+  str->size -= amount;
 }
 
-static inline void str8_trim(s8* str) {
-    while(0 < str->size && str->data[0] == ' ') {
-        str8_cut_left(str, 1);
-    }
-    while(0 < str->size && str->data[str->size - 1] == ' ') {
-        str8_cut_right(str, 1);
-    }
+static inline void str8_trim(s8 *str) {
+  while (0 < str->size && str->data[0] == ' ') {
+    str8_cut_left(str, 1);
+  }
+  while (0 < str->size && str->data[str->size - 1] == ' ') {
+    str8_cut_right(str, 1);
+  }
 }
 
-static inline s8 str8_slice_at(s8* str, char c) {
-    s8 result = {0};
-    for(u64 i = 0; i < str->size; ++i) {
-        if(str->data[i] == c) {
-            result.data = &str->data[0];
-            result.size = i;
-            str8_cut_left(str, i + 1);
-            return result;
-        }
+static inline s8 str8_slice_at(s8 *str, char c) {
+  s8 result = {0};
+  for (u64 i = 0; i < str->size; ++i) {
+    if (str->data[i] == c) {
+      result.data = &str->data[0];
+      result.size = i;
+      str8_cut_left(str, i + 1);
+      return result;
     }
-    return *str;
+  }
+  return *str;
 }
 
-static inline s8 str8_copy(mem_arena* arena, s8 s) {
-    s8 out = {0};
-    out.data = (u8*)arena_push(arena, s.size, false);
-    if (!out.data) return out;
-
-    out.size = s.size;
-    memcpy(out.data, s.data, s.size);
+static inline s8 str8_copy(mem_arena *arena, s8 s) {
+  s8 out = {0};
+  out.data = (u8 *)arena_push(arena, s.size, false);
+  if (!out.data)
     return out;
+
+  out.size = s.size;
+  memcpy(out.data, s.data, s.size);
+  return out;
 }
 
 /// Arena

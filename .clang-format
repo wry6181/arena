@@ -1,5 +1,5 @@
 ---
-Language:        Cpp
+Language:        C
 AlignAfterOpenBracket: true
 AccessModifierOffset: -2
 AlignArrayOfStructures: None
@@ -318,4 +318,3 @@ WhitespaceSensitiveMacros:
   - STRINGIZE
 WrapNamespaceBodyWithEmptyLines: Leave
 ...
-
