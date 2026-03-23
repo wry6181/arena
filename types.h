@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdatomic.h>
 
 typedef int64_t i64;
 typedef int32_t i32;
@@ -12,6 +13,7 @@ typedef uint8_t u8;
 typedef float f32;
 typedef i32 b32;
 typedef i8 b8;
+typedef atomic_uint au32 ;
 
 #define Byte(n) (u64)(n)
 #define KByte(n) ((u64)(n) << 10)
