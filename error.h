@@ -1,3 +1,5 @@
+#pragma once
+
 typedef enum {
   OPEN_FILE_ERROR = 0,
   READ_FILE_ERROR,
