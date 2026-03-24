@@ -89,6 +89,14 @@ static inline s8 str8_slice_at(s8 *str, char c) {
   return *str;
 }
 
+static inline b32 str8_eq(s8 a, s8 b) {
+  if (a.size != b.size)
+    return false;
+  if (a.size == 0)
+    return true;
+  return memcmp(a.data, b.data, a.size) == 0;
+}
+
 static inline s8 str8_copy(mem_arena *arena, s8 s) {
   s8 out = {0};
   out.data = (u8 *)arena_push(arena, s.size, false);

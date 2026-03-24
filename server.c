@@ -1,37 +1,62 @@
 #include "base.h"
 #include "error.h"
 #include "log.h"
-#include "thread_pool.h"
 #include "networking.h"
+#include "thread_pool.h"
 
-typedef struct {
-  net_socket sock;
-} conn_job_data;
+void conn_job(void *data, mem_arena *arena, mem_arena *main_arena) {
+  job *j = data;
+  net_socket sock = j->sock;
+  u64 arena_pos = main_arena->pos;
 
-void conn_job(void *data, mem_arena *arena) {
-  conn_job_data *d = data;
+  while (1) {
+    s8 raw = net_read(sock, arena);
 
-  s8 raw = net_read(d->sock, arena);
+    if (!raw.data || raw.size == 0) {
+      net_close(sock);
+      arena_pop_to(main_arena, arena_pos);
+      break;
+    }
 
-  http_request req = http_parse(raw, arena);
-  http_response res = {0};
+    http_request req = http_parse(raw, arena);
+    http_response res = {0};
 
-  if (!req.valid) {
-    res.status = 500;
-    res.body   = STR8_LIT("bad request");
-  } else if (req.path.size == 1 && req.path.data[0] == '/') {
-    res.status = 200;
-    res.body   = STR8_LIT("hello from arena server");
-  } else {
-    res.status = 404;
-    res.body   = STR8_LIT("not found");
+    b32 keep_alive = false;
+    if (req.valid) {
+      s8 conn = http_header_get(req, STR8_LIT("Connection"));
+      if (conn.size > 0) {
+        if (str8_eq(conn, STR8_LIT("keep-alive"))) {
+          keep_alive = true;
+        } else if (str8_eq(conn, STR8_LIT("close"))) {
+          keep_alive = false;
+        }
+      } else if (req.method.size >= 4 && req.method.data[0] == 'H') {
+        keep_alive = true;
+      }
+    }
+
+    if (!req.valid) {
+      res.status = 500;
+      res.body = STR8_LIT("bad request");
+    } else if (req.path.size == 1 && req.path.data[0] == '/') {
+      res.status = 200;
+      res.body = STR8_LIT("hello from arena server");
+    } else {
+      res.status = 404;
+      res.body = STR8_LIT("not found");
+    }
+
+    s8 out = http_build_response(res, keep_alive, arena);
+    net_write(sock, out);
+
+    arena_clear(arena);
+
+    if (!keep_alive) {
+      net_close(sock);
+      arena_pop_to(main_arena, arena_pos);
+      break;
+    }
   }
-
-  s8 out = http_build_response(res, arena);
-  net_write(d->sock, out);
-  net_close(d->sock);
-
-  arena_clear(arena);
 }
 
 int main(void) {
@@ -40,25 +65,27 @@ int main(void) {
 
   log_frame_begin(log_arena);
 
-  thread_pool *pool = thread_pool_create(arena, 5, MByte(100));
+  thread_pool *pool = thread_pool_create(arena, 32, MByte(100));
 
   net_socket server = net_listen(8080);
-    if (!net_socket_valid(server)) {
-      fprintf(stderr, "failed to bind\n");
-      return 1;
-    }
+  if (!net_socket_valid(server)) {
+    fprintf(stderr, "failed to bind\n");
+    return 1;
+  }
 
-    printf("listening on :8080\n");
+  printf("listening on :8080\n");
+  fflush(stdout);
 
-    while (1) {
-      net_socket client = net_accept(server);
-      if (!net_socket_valid(client)) continue;
+  while (1) {
+    net_socket client = net_accept(server);
+    if (!net_socket_valid(client))
+      continue;
 
-      conn_job_data *d = PUSH_STRUCT_ZERO(arena, conn_job_data);
-      d->sock = client;
-      job_queue_push(pool->queue, conn_job, d);
-    }
-
+    job *j = PUSH_STRUCT_ZERO(arena, job);
+    j->fn = conn_job;
+    j->sock = client;
+    job_queue_push(pool->queue, j->fn, j);
+  }
 
   WARNING_EMIT("main tread", OPEN_FILE_ERROR);
 

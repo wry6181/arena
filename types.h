@@ -1,4 +1,3 @@
-#include <dispatch/dispatch.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -15,7 +14,6 @@ typedef float f32;
 typedef i32 b32;
 typedef i8 b8;
 typedef atomic_uint au32;
-typedef dispatch_semaphore_t sem_t;
 
 #define Byte(n) (u64)(n)
 #define KByte(n) ((u64)(n) << 10)
