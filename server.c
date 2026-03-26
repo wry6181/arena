@@ -65,7 +65,7 @@ int main(void) {
 
   log_frame_begin(log_arena);
 
-  thread_pool *pool = thread_pool_create(arena, 32, MByte(100));
+  thread_pool *pool = thread_pool_create(arena, 8, MByte(100));
 
   net_socket server = net_listen(8080);
   if (!net_socket_valid(server)) {

@@ -5,9 +5,7 @@
 #include "networking.h"
 #include <pthread.h>
 #include <sched.h>
-#include <semaphore.h>
 #include <stdatomic.h>
-#include <stdio.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -27,8 +25,8 @@ struct job_queue {
   u32 volatile next_read;
   u32 volatile completion_goal;
   u32 volatile completion_count;
-  sem_t semaphore;
   pthread_mutex_t lock;
+  pthread_cond_t cond;
 };
 
 typedef struct {
@@ -48,19 +46,15 @@ void *worker_entry(void *arg) {
   worker_ctx *ctx = (worker_ctx *)arg;
   job_queue *q = ctx->queue;
   while (1) {
-    if (sem_wait(&q->semaphore) != 0) {
-      continue;
-    }
     pthread_mutex_lock(&q->lock);
-    if (q->next_read < q->next_write) {
-      u32 read = q->next_read++;
-      pthread_mutex_unlock(&q->lock);
-      job *j = &q->entries[read % ARRAY_COUNT(q->entries)];
-      j->fn(j->data, ctx->arena, ctx->main_arena);
-      __sync_fetch_and_add(&q->completion_count, 1);
-    } else {
-      pthread_mutex_unlock(&q->lock);
+    while (q->next_read >= q->next_write) {
+      pthread_cond_wait(&q->cond, &q->lock);
     }
+    u32 read = q->next_read++;
+    pthread_mutex_unlock(&q->lock);
+    job *j = &q->entries[read % ARRAY_COUNT(q->entries)];
+    j->fn(j->data, ctx->arena, ctx->main_arena);
+    __sync_fetch_and_add(&q->completion_count, 1);
   }
   return NULL;
 }
@@ -70,8 +64,8 @@ static inline void job_queue_init(job_queue *q) {
   q->next_read = 0;
   q->completion_goal = 0;
   q->completion_count = 0;
-  sem_init(&q->semaphore, 0, 0);
   pthread_mutex_init(&q->lock, NULL);
+  pthread_cond_init(&q->cond, NULL);
 }
 
 static inline void job_queue_push(job_queue *q, job_fn fn, void *data) {
@@ -81,8 +75,8 @@ static inline void job_queue_push(job_queue *q, job_fn fn, void *data) {
   q->entries[idx].data = data;
   q->next_write++;
   __sync_fetch_and_add(&q->completion_goal, 1);
+  pthread_cond_broadcast(&q->cond);
   pthread_mutex_unlock(&q->lock);
-  sem_post(&q->semaphore);
 }
 
 static inline void job_queue_drain(job_queue *q, mem_arena *arena,
@@ -123,8 +117,8 @@ thread_pool *thread_pool_create(mem_arena *arena, u32 pool_size,
 }
 
 void thread_pool_destroy(thread_pool *pool) {
-  sem_destroy(&pool->queue->semaphore);
   pthread_mutex_destroy(&pool->queue->lock);
+  pthread_cond_destroy(&pool->queue->cond);
   for (u32 i = 0; i < pool->size; ++i) {
     arena_destroy(pool->arenas[i]);
   }
