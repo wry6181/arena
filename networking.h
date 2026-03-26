@@ -23,6 +23,30 @@ typedef struct {
   mem_arena *arena;
 } net_conn;
 
+typedef struct {
+  s8 method;
+  s8 path;
+  s8 body;
+  s8 headers;
+  b32 valid;
+} http_request;
+
+typedef struct {
+  u16 status;
+  s8 content_type;
+  s8 body;
+} http_response;
+
+typedef void (*route_handler)(http_request *req, http_response *res, mem_arena *arena);
+
+typedef struct {
+  s8            method;
+  s8            path;
+  route_handler handler;
+} http_route;
+
+
+
 // ---- socket ----
 
 static inline net_socket net_listen(u16 port) {
@@ -101,19 +125,6 @@ static inline void net_write(net_socket s, s8 buf) {
   }
 }
 
-typedef struct {
-  s8 method;
-  s8 path;
-  s8 body;
-  s8 headers;
-  b32 valid;
-} http_request;
-
-typedef struct {
-  u16 status;
-  s8 content_type;
-  s8 body;
-} http_response;
 
 static inline http_request http_parse(s8 raw, mem_arena *arena) {
   (void)arena;
@@ -168,19 +179,34 @@ static inline s8 http_header_get(http_request req, s8 name) {
   return (s8){0};
 }
 
+
+
 static inline s8 http_build_response(http_response res, b32 keep_alive,
                                      mem_arena *arena) {
   char status_line[64];
-  const char *reason = "OK";
-  if (res.status == 404)
-    reason = "Not Found";
-  else if (res.status == 500)
-    reason = "Internal Server Error";
+  const char *reason;
+  switch (res.status) {
+    case 200: reason = "OK";                    break;
+    case 201: reason = "Created";               break;
+    case 204: reason = "No Content";            break;
+    case 400: reason = "Bad Request";           break;
+    case 404: reason = "Not Found";             break;
+    case 405: reason = "Method Not Allowed";    break;
+    case 500: reason = "Internal Server Error"; break;
+    default:  reason = "Unknown";               break;
+  }
 
   int hlen = snprintf(status_line, sizeof(status_line), "HTTP/1.1 %d %s\r\n",
                       res.status, reason);
 
-  const char *ct = "text/plain";
+  char ct_buf[128] = "text/plain";
+  if (res.content_type.data && res.content_type.size > 0) {
+    u64 n = res.content_type.size < 127 ? res.content_type.size : 127;
+    memcpy(ct_buf, res.content_type.data, n);
+    ct_buf[n] = '\0';
+  }
+  const char *ct = ct_buf;
+
   const char *conn =
       keep_alive ? "Connection: keep-alive\r\n" : "Connection: close\r\n";
 
