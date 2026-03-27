@@ -1,12 +1,48 @@
 #include "base.h"
+#include "endpoint.h"
 #include "error.h"
 #include "log.h"
 #include "networking.h"
 #include "thread_pool.h"
-#include "endpoint.h"
 
+#include <stdio.h>
+#include <stdlib.h>
 
-int main(void) {
+static inline const char *parse_str(const char *s, int *ok) {
+  *ok = 1;
+  return s;
+}
+static inline u32 parse_u32(const char *s, int *ok) {
+  *ok = 1;
+  return (u32)strtoul(s, NULL, 10);
+}
+
+#define REQUIRED_ARGS                                                          \
+  REQUIRED_ARG(const char *, input_file, "input", "Input file path", parse_str)
+
+#define OPTIONAL_ARGS                                                          \
+  OPTIONAL_ARG(u32, threads, 1, "-t", "threads", "Number of threads to use",   \
+               "%u", parse_u32)
+
+#define BOOL_ARGS BOOL_ARG(help, "-h", "Show help")
+
+#include "arg_parser.h"
+
+int main(int argc, const char *argv[]) {
+
+  // for (u64 i = 0; i < argc; ++i) {
+  //     printf("%lu %s\n", i, args[i]);
+  // }
+  //
+  cl_args args = make_default_args();
+
+  if (!parse_args(argc, argv, &args)) {
+    // print_help(argv[0]);
+    return 1;
+  }
+
+  printf("%s\n%u\n%d\n", args.input_file, args.threads, args.help);
+
   mem_arena *log_arena = arena_create(MByte(1));
   mem_arena *arena = arena_create(MByte(100));
 

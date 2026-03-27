@@ -37,15 +37,14 @@ typedef struct {
   s8 body;
 } http_response;
 
-typedef void (*route_handler)(http_request *req, http_response *res, mem_arena *arena);
+typedef void (*route_handler)(http_request *req, http_response *res,
+                              mem_arena *arena);
 
 typedef struct {
-  s8            method;
-  s8            path;
+  s8 method;
+  s8 path;
   route_handler handler;
 } http_route;
-
-
 
 // ---- socket ----
 
@@ -125,7 +124,6 @@ static inline void net_write(net_socket s, s8 buf) {
   }
 }
 
-
 static inline http_request http_parse(s8 raw, mem_arena *arena) {
   (void)arena;
   http_request req = {0};
@@ -179,21 +177,35 @@ static inline s8 http_header_get(http_request req, s8 name) {
   return (s8){0};
 }
 
-
-
 static inline s8 http_build_response(http_response res, b32 keep_alive,
                                      mem_arena *arena) {
   char status_line[64];
   const char *reason;
   switch (res.status) {
-    case 200: reason = "OK";                    break;
-    case 201: reason = "Created";               break;
-    case 204: reason = "No Content";            break;
-    case 400: reason = "Bad Request";           break;
-    case 404: reason = "Not Found";             break;
-    case 405: reason = "Method Not Allowed";    break;
-    case 500: reason = "Internal Server Error"; break;
-    default:  reason = "Unknown";               break;
+  case 200:
+    reason = "OK";
+    break;
+  case 201:
+    reason = "Created";
+    break;
+  case 204:
+    reason = "No Content";
+    break;
+  case 400:
+    reason = "Bad Request";
+    break;
+  case 404:
+    reason = "Not Found";
+    break;
+  case 405:
+    reason = "Method Not Allowed";
+    break;
+  case 500:
+    reason = "Internal Server Error";
+    break;
+  default:
+    reason = "Unknown";
+    break;
   }
 
   int hlen = snprintf(status_line, sizeof(status_line), "HTTP/1.1 %d %s\r\n",
