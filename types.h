@@ -22,3 +22,19 @@ typedef atomic_uint au32;
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
+#define UNUSED(x) (void(x))
+#ifdef DNDEBUG
+    #define ASSERT(cond) (void(cond))
+#else
+    #define ASSERT(cond) \
+    do {    \
+        if(!cond) {\
+            fprintf(stderr, "ASSERT FAILED: %s\n  %s:%d\n", #cond, __FILE__, __LINE__);\
+            __builtin_trap();\
+        }\
+    } while(0 )
+#endif
+
+#define UNREACHABLE() ASSERT(!"Unreachable code!");
+#define NOTINPLAMENTED() ASSERT(!"Not inplamented yet!")

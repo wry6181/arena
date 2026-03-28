@@ -22,7 +22,7 @@ struct cl_args {
 #undef OPTIONAL_ARG
 #undef BOOL_ARG
 
-static inline cl_args make_default_args() {
+static inline cl_args make_default_args(void) {
   cl_args args = {
 #define REQUIRED_ARG(type, name, ...) .name = (type)0,
 #define OPTIONAL_ARG(type, name, default, ...) .name = default,

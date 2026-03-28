@@ -2,7 +2,7 @@ CC ?= gcc
 
 CFLAGS = -m64 -std=c11 -Wall -Wextra -pedantic
 
-DEBUG_FLAGS = -DDEBUG -O0 -g
+DEBUG_FLAGS = -DDEBUG -O0 -g -Werror
 RELEASE_FLAGS = -DNDEBUG -O3 -march=native -flto -fomit-frame-pointer
 
 config ?= debug
