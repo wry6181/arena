@@ -32,7 +32,7 @@ static void handle_post_echo(http_request *req, http_response *res,
   res->body = req->body;
 }
 
-static const http_route routes[] = {
+const http_route routes[] = {
     {STR8_LIT("GET"), STR8_LIT("/"), handle_get_index},
     {STR8_LIT("GET"), STR8_LIT("/ping"), handle_get_ping},
     {STR8_LIT("POST"), STR8_LIT("/echo"), handle_post_echo},

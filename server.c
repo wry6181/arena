@@ -8,14 +8,30 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+typedef enum Entity {
+#define X(name, str, color) Entity_##name,
+#include "entity_types.inc"
+#undef X
+} Entity;
+
+static const char* entity_mames[] = {
+#define X(name, str, color) str,
+#include "entity_types.inc"
+#undef X
+};
+
+void entity_printer() {
+  for(int i = 0; i < (int)ARRAY_COUNT(entity_mames); ++i) {
+      printf("%s \n", entity_mames[i]);
+  }
+}
 
 int main(int argc, const char *argv[]) {
 
   for (int i = 0; i < argc; ++i) {
     printf("%d %s\n", i, argv[i]);
   }
-
-
+  entity_printer();
 
   mem_arena *log_arena = arena_create(MByte(1));
   mem_arena *arena = arena_create(MByte(100));
