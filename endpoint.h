@@ -1,6 +1,7 @@
 #pragma once
 
 #include "base.h"
+#include "json_parse.h"
 #include "networking.h"
 #include "thread_pool.h"
 #include <stdio.h>
@@ -25,16 +26,47 @@ static void handle_get_ping(http_request *req, http_response *res,
 
 static void handle_post_echo(http_request *req, http_response *res,
                              mem_arena *arena) {
-  (void)arena;
-  printf("body: %.*s\n", STR8_FMT(req->body));
+  c_json *parsed = json_parse_from_s8(arena, req->body);
+  if (parsed) {
+    if (json_is_object(parsed)) {
+      c_json *msg = json_get(parsed, "message");
+      if (msg && json_is_string(msg)) {
+        fprintf(stderr, "parsed message: %s\n", json_get_string(msg));
+      }
+    } else if (json_is_array(parsed)) {
+      c_json *first = json_get_index(parsed, 0);
+      if (first && json_is_string(first)) {
+        fprintf(stderr, "first element: %s\n", json_get_string(first));
+      }
+    }
+  }
   res->status = 200;
-  res->content_type = STR8_LIT("text/plain");
+  res->content_type = STR8_LIT("application/json");
   res->body = req->body;
+}
+
+static c_json *config_cache = NULL;
+
+static void handle_get_config(http_request *req, http_response *res,
+                              mem_arena *arena) {
+  (void)req;
+  if (!config_cache) {
+    config_cache = json_parse_file(arena, "config.json");
+  }
+  if (config_cache) {
+    res->status = 200;
+    res->content_type = STR8_LIT("application/json");
+    res->body = STR8_LIT("config loaded");
+  } else {
+    res->status = 500;
+    res->body = STR8_LIT("config not found");
+  }
 }
 
 const http_route routes[] = {
     {STR8_LIT("GET"), STR8_LIT("/"), handle_get_index},
     {STR8_LIT("GET"), STR8_LIT("/ping"), handle_get_ping},
+    {STR8_LIT("GET"), STR8_LIT("/config"), handle_get_config},
     {STR8_LIT("POST"), STR8_LIT("/echo"), handle_post_echo},
 };
 
