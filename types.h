@@ -39,3 +39,50 @@ typedef atomic_uint au32;
 
 #define UNREACHABLE() ASSERT(!"Unreachable code!");
 #define NOTINPLAMENTED() ASSERT(!"Not inplamented yet!")
+
+#define NUM_ARGS(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
+
+#define BIT_FLAG_ENABLE(flags_addr, ...) do {       \
+    u32 _bits[] = {__VA_ARGS__};                    \
+    u32 _mask = 0;                                  \
+    for (int i = 0; i < NUM_ARGS(__VA_ARGS__); ++i) \
+        _mask |= _bits[i];                          \
+    *(flags_addr) |= _mask;                         \
+} while(0)
+
+#define BIT_FLAG_DISABLE(flags_addr, ...) do {      \
+    u32 _bits[] = {__VA_ARGS__};                    \
+    u32 _mask = 0;                                  \
+    for (int i = 0; i < NUM_ARGS(__VA_ARGS__); ++i) \
+        _mask |= _bits[i];                          \
+    *(flags_addr) &= ~_mask;                        \
+} while(0)
+
+#define BIT_FLAG_TOGGLE(flags_addr, ...) do {         \
+    u32 _bits[] = {__VA_ARGS__};                      \
+    u32 _mask = 0;                                    \
+    for (int i = 0; i < NUM_ARGS(__VA_ARGS__); ++i)   \
+        _mask |= _bits[i];                            \
+    *(flags_addr) ^= _mask;                           \
+} while(0)
+
+#define BIT_FLAG_ANY(flags, ...) ({             \
+    u32 _bits[] = {__VA_ARGS__};                \
+    u32 _mask = 0;                              \
+    for (int i = 0; i < NUM_ARGS(__VA_ARGS__); ++i) \
+        _mask |= _bits[i];                      \
+    (flags) & _mask;                            \
+})
+
+#define BIT_FLAG_ALL(flags, ...) ({             \
+    u32 _bits[] = {__VA_ARGS__};                \
+    u32 _mask = 0;                              \
+    for (int i = 0; i < NUM_ARGS(__VA_ARGS__); ++i) \
+        _mask |= _bits[i];                      \
+    ((flags) & _mask) == _mask;                 \
+})
+
+#define BIT_FLAG_EXACT(flags, mask) (((flags) & (mask)) == (mask))
+
+#define BIT_FLAG_SET_WITH_COND(flags, bit, cond) \
+    ((flags) = ((flags) & ~(bit)) | (-!!(cond) & (bit)))
