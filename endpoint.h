@@ -6,6 +6,33 @@
 #include "thread_pool.h"
 #include <stdio.h>
 
+typedef enum {
+  GET = 0,
+  POST,
+} endpoint_type;
+
+typedef struct endpoint endpoint;
+struct endpoint {
+  s8 path;
+  endpoint_type type;
+  void (*handler)(http_request *req, http_response *res, mem_arena *arena);
+  struct endpoint *next;
+};
+
+static endpoint *endpoint_list = NULL;
+
+static endpoint *register_endpoint(
+    mem_arena *arena, endpoint_type type, s8 path,
+    void (*handler)(http_request *req, http_response *res, mem_arena *arena)) {
+  endpoint *e = PUSH_STRUCT_ZERO(arena, endpoint);
+  e->path = path;
+  e->type = type;
+  e->handler = handler;
+  e->next = endpoint_list;
+  endpoint_list = e;
+  return e;
+}
+
 static void handle_get_index(http_request *req, http_response *res,
                              mem_arena *arena) {
   (void)req;
@@ -24,6 +51,14 @@ static void handle_get_ping(http_request *req, http_response *res,
   res->body = STR8_LIT("{\"ok\":true}");
 }
 
+static void handle_get_echo(http_request *req, http_response *res,
+                            mem_arena *arena) {
+  (void)arena;
+  res->status = 200;
+  res->content_type = STR8_LIT("application/json");
+  res->body = req->body;
+}
+
 static void handle_post_echo(http_request *req, http_response *res,
                              mem_arena *arena) {
   c_json *parsed = json_parse_from_s8(arena, req->body);
@@ -33,10 +68,35 @@ static void handle_post_echo(http_request *req, http_response *res,
       if (msg && json_is_string(msg)) {
         fprintf(stderr, "parsed message: %s\n", json_get_string(msg));
       }
+      c_json *count = json_get(parsed, "count");
+      if (count && json_is_number(count)) {
+        fprintf(stderr, "parsed count: %.0f\n", json_get_number(count));
+      }
+      c_json *active = json_get(parsed, "active");
+      if (active && json_is_bool(active)) {
+        fprintf(stderr, "parsed active: %s\n",
+                json_get_bool(active) ? "true" : "false");
+      }
+      c_json *ratio = json_get(parsed, "ratio");
+      if (ratio && json_is_number(ratio)) {
+        fprintf(stderr, "parsed ratio: %f\n", json_get_number(ratio));
+      }
+      c_json *val = json_get(parsed, "value");
+      if (val && json_is_null(val)) {
+        fprintf(stderr, "parsed value: null\n");
+      }
+      c_json *user = json_get(parsed, "user");
+      if (user && json_is_object(user)) {
+        fprintf(stderr, "parsed user: (object)\n");
+      }
     } else if (json_is_array(parsed)) {
       c_json *first = json_get_index(parsed, 0);
       if (first && json_is_string(first)) {
-        fprintf(stderr, "first element: %s\n", json_get_string(first));
+        fprintf(stderr, "parsed array[0]: %s\n", json_get_string(first));
+      }
+      c_json *second = json_get_index(parsed, 1);
+      if (second && json_is_string(second)) {
+        fprintf(stderr, "parsed array[1]: %s\n", json_get_string(second));
       }
     }
   }
@@ -63,37 +123,31 @@ static void handle_get_config(http_request *req, http_response *res,
   }
 }
 
-const http_route routes[] = {
-    {STR8_LIT("GET"), STR8_LIT("/"), handle_get_index},
-    {STR8_LIT("GET"), STR8_LIT("/ping"), handle_get_ping},
-    {STR8_LIT("GET"), STR8_LIT("/config"), handle_get_config},
-    {STR8_LIT("POST"), STR8_LIT("/echo"), handle_post_echo},
-};
-
-static const u32 route_count = sizeof(routes) / sizeof(routes[0]);
-
 static void dispatch(http_request *req, http_response *res, mem_arena *arena) {
   if (!req->valid) {
     res->status = 400;
     res->body = STR8_LIT("bad request");
     return;
   }
-  b32 path_matched = false;
-  for (u32 i = 0; i < route_count; i++) {
-    if (!str8_eq(req->path, routes[i].path))
+
+  endpoint_type req_type = GET;
+  if (str8_eq(req->method, STR8_LIT("POST")))
+    req_type = POST;
+
+  for (endpoint *e = endpoint_list; e; e = e->next) {
+    if (!str8_eq(req->path, e->path))
       continue;
-    path_matched = true;
-    if (!str8_eq(req->method, routes[i].method))
-      continue;
-    routes[i].handler(req, res, arena);
+    if (e->type != req_type) {
+      res->status = 405;
+      res->body = STR8_LIT("method not allowed");
+      return;
+    }
+    e->handler(req, res, arena);
     return;
   }
-  res->status = path_matched ? 405 : 404;
-  res->body =
-      path_matched ? STR8_LIT("method not allowed") : STR8_LIT("not found");
 
-  printf("%.*s %.*s %u\n", STR8_FMT(req->path), STR8_FMT(req->method),
-         res->status);
+  res->status = 404;
+  res->body = STR8_LIT("not found");
 }
 
 void conn_job(void *data, mem_arena *arena, mem_arena *main_arena) {

@@ -14,15 +14,15 @@ typedef enum Entity {
 #undef X
 } Entity;
 
-static const char* entity_mames[] = {
+static const char *entity_mames[] = {
 #define X(name, str, color) str,
 #include "entity_types.inc"
 #undef X
 };
 
 void entity_printer() {
-  for(int i = 0; i < (int)ARRAY_COUNT(entity_mames); ++i) {
-      printf("%s \n", entity_mames[i]);
+  for (int i = 0; i < (int)ARRAY_COUNT(entity_mames); ++i) {
+    printf("%s \n", entity_mames[i]);
   }
 }
 
@@ -39,6 +39,12 @@ int main(int argc, const char *argv[]) {
   log_frame_begin(log_arena);
 
   thread_pool *pool = thread_pool_create(arena, 8, MByte(100));
+
+  register_endpoint(arena, GET, STR8_LIT("/"), handle_get_index);
+  register_endpoint(arena, GET, STR8_LIT("/ping"), handle_get_ping);
+  register_endpoint(arena, GET, STR8_LIT("/config"), handle_get_config);
+  register_endpoint(arena, GET, STR8_LIT("/echo"), handle_get_echo);
+  register_endpoint(arena, POST, STR8_LIT("/echo"), handle_post_echo);
 
   net_socket server = net_listen(8888);
   if (!net_socket_valid(server)) {
