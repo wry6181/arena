@@ -9,8 +9,6 @@
 #include <time.h>
 #include <unistd.h>
 
-typedef struct job_queue job_queue;
-
 typedef void (*job_fn)(void *data, mem_arena *arena, mem_arena *main_arena);
 
 typedef struct {
@@ -19,8 +17,9 @@ typedef struct {
   net_socket sock;
 } job;
 
+typedef struct job_queue job_queue;
 struct job_queue {
-  job entries[10000];
+  job entries[1000000];
   u32 volatile next_write;
   u32 volatile next_read;
   u32 volatile completion_goal;

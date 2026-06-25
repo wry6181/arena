@@ -67,27 +67,33 @@ static void handle_post_echo(http_request *req, http_response *res,
       c_json *msg = json_get(parsed, "message");
       if (msg && json_is_string(msg)) {
         fprintf(stderr, "parsed message: %s\n", json_get_string(msg));
+        fflush(stderr);
       }
       c_json *count = json_get(parsed, "count");
       if (count && json_is_number(count)) {
         fprintf(stderr, "parsed count: %.0f\n", json_get_number(count));
+        fflush(stderr);
       }
       c_json *active = json_get(parsed, "active");
       if (active && json_is_bool(active)) {
         fprintf(stderr, "parsed active: %s\n",
                 json_get_bool(active) ? "true" : "false");
+        fflush(stderr);
       }
       c_json *ratio = json_get(parsed, "ratio");
       if (ratio && json_is_number(ratio)) {
         fprintf(stderr, "parsed ratio: %f\n", json_get_number(ratio));
+        fflush(stderr);
       }
       c_json *val = json_get(parsed, "value");
       if (val && json_is_null(val)) {
         fprintf(stderr, "parsed value: null\n");
+        fflush(stderr);
       }
       c_json *user = json_get(parsed, "user");
       if (user && json_is_object(user)) {
         fprintf(stderr, "parsed user: (object)\n");
+        fflush(stderr);
       }
     } else if (json_is_array(parsed)) {
       c_json *first = json_get_index(parsed, 0);
@@ -151,14 +157,13 @@ static void dispatch(http_request *req, http_response *res, mem_arena *arena) {
 }
 
 void conn_job(void *data, mem_arena *arena, mem_arena *main_arena) {
-  job *j = data;
+  job *j = (job *)data;
   net_socket sock = j->sock;
-  u64 arena_pos = main_arena->pos;
+  (void)main_arena;
   while (1) {
     s8 raw = net_read(sock, arena);
     if (!raw.data || raw.size == 0) {
       net_close(sock);
-      arena_pop_to(main_arena, arena_pos);
       break;
     }
     http_request req = http_parse(raw, arena);
@@ -179,14 +184,13 @@ void conn_job(void *data, mem_arena *arena, mem_arena *main_arena) {
     }
 
     dispatch(&req, &res, arena);
-    printf("%.*s", STR8_FMT(req.body));
+    //printf("%.*s", STR8_FMT(req.body));
 
     s8 out = http_build_response(res, keep_alive, arena);
     net_write(sock, out);
     arena_clear(arena);
     if (!keep_alive) {
       net_close(sock);
-      arena_pop_to(main_arena, arena_pos);
       break;
     }
   }

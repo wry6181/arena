@@ -1,14 +1,9 @@
 #!/bin/bash
-
 SERVER="http://localhost:8888"
 PASSED=0
 FAILED=0
 LOG_FILE="/tmp/server.log"
-SKIP_SERVER_START=0
-
-if [[ "$1" == "--no-start" ]]; then
-    SKIP_SERVER_START=1
-fi
+SERVER_PID=""
 
 check() {
     local name="$1"
@@ -25,74 +20,57 @@ check() {
     fi
 }
 
+# Run a curl, then read only the new bytes appended to the log since before the request
+check_log() {
+    local name="$1"
+    local expected="$2"
+    shift 2
+    local start_pos
+    start_pos=$(stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)
+    "$@" > /dev/null
+    sleep 0.2
+    local result
+    result=$(tail -c +$((start_pos + 1)) "$LOG_FILE" 2>/dev/null)
+    check "$name" "$expected" "$result"
+}
+
 echo ""
 echo "=== JSON Parser Tests ==="
 echo ""
 
-# Test 1: String in object
-> $LOG_FILE
-curl -s --max-time 2 -X POST $SERVER/echo -d '{"message":"hello"}' > /dev/null
-sleep 0.2
-result=$(cat $LOG_FILE 2>/dev/null)
-check "String in object" "parsed message: hello" "$result"
+check_log "String in object"   "parsed message: hello" \
+    curl -s --max-time 2 -X POST $SERVER/echo -d '{"message":"hello"}'
 
-# Test 2: Number in object
-> $LOG_FILE
-curl -s --max-time 2 -X POST $SERVER/echo -d '{"count":42}' > /dev/null
-sleep 0.2
-result=$(cat $LOG_FILE 2>/dev/null)
-check "Number in object" "parsed count: 42" "$result"
+check_log "Number in object"   "parsed count: 42" \
+    curl -s --max-time 2 -X POST $SERVER/echo -d '{"count":42}'
 
-# Test 3: Boolean true
-> $LOG_FILE
-curl -s --max-time 2 -X POST $SERVER/echo -d '{"active":true}' > /dev/null
-sleep 0.2
-result=$(cat $LOG_FILE 2>/dev/null)
-check "Boolean true" "parsed active: true" "$result"
+check_log "Boolean true"       "parsed active: true" \
+    curl -s --max-time 2 -X POST $SERVER/echo -d '{"active":true}'
 
-# Test 4: Boolean false
-> $LOG_FILE
-curl -s --max-time 2 -X POST $SERVER/echo -d '{"active":false}' > /dev/null
-sleep 0.2
-result=$(cat $LOG_FILE 2>/dev/null)
-check "Boolean false" "parsed active: false" "$result"
+check_log "Boolean false"      "parsed active: false" \
+    curl -s --max-time 2 -X POST $SERVER/echo -d '{"active":false}'
 
-# Test 5: Float number
-> $LOG_FILE
-curl -s --max-time 2 -X POST $SERVER/echo -d '{"ratio":3.14}' > /dev/null
-sleep 0.2
-result=$(cat $LOG_FILE 2>/dev/null)
-check "Float number" "parsed ratio: 3.14" "$result"
+check_log "Float number"       "parsed ratio: 3.14" \
+    curl -s --max-time 2 -X POST $SERVER/echo -d '{"ratio":3.14}'
 
-# Test 6: Null value
-> $LOG_FILE
-curl -s --max-time 2 -X POST $SERVER/echo -d '{"value":null}' > /dev/null
-sleep 0.2
-result=$(cat $LOG_FILE 2>/dev/null)
-check "Null value" "parsed value: null" "$result"
+check_log "Null value"         "parsed value: null" \
+    curl -s --max-time 2 -X POST $SERVER/echo -d '{"value":null}'
 
-# Test 7: Nested object
-> $LOG_FILE
-curl -s --max-time 2 -X POST $SERVER/echo -d '{"user":{"name":"alice"}}' > /dev/null
-sleep 0.2
-result=$(cat $LOG_FILE 2>/dev/null)
-check "Nested object" "parsed user: (object)" "$result"
+check_log "Nested object"      "parsed user: (object)" \
+    curl -s --max-time 2 -X POST $SERVER/echo -d '{"user":{"name":"alice"}}'
 
-# Test 8: Array of strings
-> $LOG_FILE
+# Array test - two checks from one request
+start_pos=$(stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)
 curl -s --max-time 2 -X POST $SERVER/echo -d '["first","second"]' > /dev/null
 sleep 0.2
-result=$(cat $LOG_FILE 2>/dev/null)
-check "Array[0]" "parsed array[0]: first" "$result"
-check "Array[1]" "parsed array[1]: second" "$result"
+arr_result=$(tail -c +$((start_pos + 1)) "$LOG_FILE" 2>/dev/null)
+check "Array[0]" "parsed array[0]: first"  "$arr_result"
+check "Array[1]" "parsed array[1]: second" "$arr_result"
 
-# Test 9: Empty object - just verify response
-> $LOG_FILE
+# Response body checks (no log needed)
 result=$(curl -s --max-time 2 -X POST $SERVER/echo -d '{}')
 check "Empty object" "{}" "$result"
 
-# Test 10: Empty array - just verify response
-> $LOG_FILE
 result=$(curl -s --max-time 2 -X POST $SERVER/echo -d '[]')
 check "Empty array" "[]" "$result"
 
@@ -100,19 +78,15 @@ echo ""
 echo "=== Basic HTTP Tests ==="
 echo ""
 
-# Test GET /ping
 result=$(curl -s --max-time 2 $SERVER/ping)
 check "GET /ping" "ok" "$result"
 
-# Test GET /
 result=$(curl -s --max-time 2 $SERVER/)
 check "GET /" "hello from arena server" "$result"
 
-# Test 404
 code=$(curl -s --max-time 2 -w "%{http_code}" -o /dev/null $SERVER/nonexistent)
 check "404 Not Found" "404" "$code"
 
-# Test 405
 code=$(curl -s --max-time 2 -w "%{http_code}" -o /dev/null -X DELETE $SERVER/echo)
 check "405 Method Not Allowed" "405" "$code"
 
@@ -121,8 +95,6 @@ echo "=== Results ==="
 echo "Passed: $PASSED"
 echo "Failed: $FAILED"
 echo ""
-
-stop_server
 
 if [[ $FAILED -eq 0 ]]; then
     echo "All tests passed!"

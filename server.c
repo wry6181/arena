@@ -62,6 +62,7 @@ int main(int argc, const char *argv[]) {
 
     job *j = PUSH_STRUCT_ZERO(arena, job);
     j->fn = conn_job;
+    j->data = j;
     j->sock = client;
     job_queue_push(pool->queue, j->fn, j);
   }
